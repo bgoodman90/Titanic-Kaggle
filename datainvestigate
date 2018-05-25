@@ -254,6 +254,8 @@ print('Test accuracy: %.3f' % rforest_best.score(X_test1, y_test1))
 #######################################################################################################
 #######################################################################################################
 
+#Majority Voting
+
 vote1 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best), ('ada', ada),\
                                      ('knn', knnpca_best), ('svm', svm_best)], voting='hard')
 
