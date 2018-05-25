@@ -1,0 +1,199 @@
+import pandas as pd
+import numpy as np
+
+from pandas import DataFrame
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import accuracy_score
+from sklearn.svm import SVC
+
+df_train = pd.read_csv('train.csv',sep=',')
+df_test = pd.read_csv('test.csv',sep=',')
+df_train_out = df_train['Survived']
+
+print('there are ',df_train.shape[0],' passengers in the training set')
+print('there are ',df_test.shape[0],' passengers in the testing set')
+
+
+df_train = df_train.drop(['Survived'], axis=1)
+frames = [df_train, df_test]
+df = pd.concat(frames)
+cols = ['PassengerId', 'Pclass', 'Name', 'Sex', 'Age', 'SibSp', 'Parch', 'Ticket', 'Fare', 'Cabin', 'Embarked']
+df = df[cols]
+
+print('first 5 rows of dataset are:')
+print(df.head())#look at first 5 rows of the dataset
+print('number of missing values in each feature are: ',df.isnull().sum()) #count number of missing values for each feature
+
+
+from sklearn.preprocessing import Imputer
+imr = Imputer(missing_values='NaN', strategy='mean', axis=0)
+imr.fit(df[['Age']])
+df['Age'] = imr.transform(df[['Age']]).ravel()
+imr.fit(df[['Fare']])
+df['Fare'] = imr.transform(df[['Fare']]).ravel()
+
+df = df.fillna(df['Embarked'].value_counts().index[0])#embarked values are categorical, this fills them in with most frequent value
+
+df = df.drop(['PassengerId','Name','Cabin','Ticket'], axis=1)#these features are removed from the dataset
+print('After mean imputation of Age and removal of PassengerId, Name, Cabin, and Ticket features')
+print('the missing values are:')
+print(df.isnull().sum())
+
+from sklearn.preprocessing import LabelEncoder#this is used for encoding categorical values to 0,1,2... (in order)
+gender_le = LabelEncoder()#don't think you have to do this twice
+embarked_le = LabelEncoder()
+
+X = df.values
+
+X[:, 1] = gender_le.fit_transform(X[:, 1])#encoding gender feature so male->1, female->0
+print(X[0:5, :])
+#data_label_encoded = gender_le.fit_transform(df['Sex'])
+#df['Sex'] = data_label_encoded
+#print(df.head())
+
+X[:, 6] = embarked_le.fit_transform(X[:, 6])#
+#data_label_encoded2 = embarked_le.fit_transform(df['Embarked'])
+#df['Embarked'] = data_label_encoded2
+#print(df.head())
+print('After we have label encoded the Sex and Embarked features, the first 5 rows of our dataset are:')
+print(X[0:5, :])
+
+from sklearn.preprocessing import OneHotEncoder#this is used for unordered categorical values such as place embarked from
+ohe = OneHotEncoder(categorical_features=[6])#we need to encode Embarked because there it has no inherent order
+#b = pd.DataFrame(X, dtype=np.int32)
+X = ohe.fit_transform(X).toarray()#note, when you do this the one hot encoding goes to the first columns of the array
+#print(X[0:5, :])
+X = np.delete(X, 0, axis=1)#we delete the first column of X because the information can be inferred by the second
+    # two columns
+print('After encoding the first 5 rows of our dataset are:')
+print(X[0:5, :])
+print('and we can see that the Embarked row has been moved to the first 2 rows (after we deleted one of the rows).')
+
+X_train = X[0:df_train.shape[0],:]#training input data
+X_ftest = X[df_train.shape[0]: ,:]#final test data
+Y_out = df_train_out.values#training output data
+print('The shape of Xtrain is', X_train.shape[0],' and the shape of Xtest is ',X_ftest.shape[0],' which should be ',\
+    X_train.shape[0]+X_ftest.shape[0],'=',df.shape[0])
+
+#Scaling
+stdsc = StandardScaler()
+X_train_std = stdsc.fit_transform(X_train)
+X_ftest_std = stdsc.transform(X_ftest)
+
+print('In our training dataset ',sum(Y_out == 0),' people died, and ',sum(Y_out == 1),' people survived.')
+print('As such ',sum(Y_out == 0)/(sum(Y_out == 0)+sum(Y_out == 1))*100,' percent of the people died in the training set.')
+#this last line is to check if our classes are imbalanced or not
+
+#now we are going to split our training data into training and testing data, the reason for this is so that we can
+#test for overfitting and such
+from sklearn.model_selection import train_test_split
+X_train1, X_test1, y_train1, y_test1 =\
+    train_test_split(X_train_std, Y_out,\
+    test_size = 0.2,\
+    random_state = 0,\
+    stratify = Y_out)#this makes sure the training and test datasets have same class proportions
+
+#print(np.cov(X_train1.T))#checking the covariance matrix of the training data, none of the values are extremely large
+
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+#Logistic Regression Estimator
+param_range = []
+for c in np.arange(-10, 10):
+    param_range.append(10.**c)
+#print(params)
+
+'''param_grid = [{'svc__C': param_range, 'svc__kernel': ['linear']},\
+    {'svc__C': param_range, 'svc__gamma': param_range, 'svc__kernel': ['rbf']}]'''
+param_grid = [{'C': param_range}]
+
+gslr = GridSearchCV(estimator=LogisticRegression(random_state=0),\
+    param_grid=param_grid,\
+    scoring='accuracy',\
+    cv=10)
+
+gslr = gslr.fit(X_train1, y_train1)
+
+print('For Logistic Regression')
+print('The best regulation parameter choice is: ',gslr.best_params_)
+print('The best score is: %.3f' % (gslr.best_score_))
+
+lreg = gslr.best_estimator_ #uses the best parameter values found via grid search
+lreg.fit(X_train1, y_train1)
+print('Test accuracy: %.3f' % lreg.score(X_test1, y_test1))
+
+'''lr = LogisticRegression(C=1, random_state=1)
+scores = cross_val_score(estimator=lr, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('LR CV accuracy scores: %s' % scores)
+print('LR CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))'''
+
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+
+#Support Vector Machine (SVM) Estimator
+
+svm = SVC(random_state=1)
+param_range3 = [.01, 0.1, 1.0, 10.0] #[0.01, 0.1, 1.0, 10.0, 100.00]
+param_grid3 = [{'C': param_range3, 'kernel': ['linear']},\
+    {'C': param_range3, 'gamma': param_range3, 'kernel': ['rbf']}]
+
+print(svm.get_params().keys())
+
+gssvm = GridSearchCV(estimator=svm, param_grid=param_grid3, scoring='accuracy', cv=10, n_jobs=-1)
+gssvm = gssvm.fit(X_train1, y_train1)
+print('For SVM')
+print('The best parameter choice is: ',gssvm.best_params_)
+print('The best score is: %.3f' % (gssvm.best_score_))
+
+svm_best = gssvm.best_estimator_ #uses the best parameter values found via grid search
+svm_best.fit(X_train1, y_train1)
+print('Test accuracy: %.3f' % svm_best.score(X_test1, y_test1))
+
+
+
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+#Random Forest Estimator
+forest = RandomForestClassifier(random_state=1)
+
+#n_estlist = [10, 25, 50, 100]
+param_grid_rf = { \
+    'n_estimators': [10, 25, 50, 100],\
+    'max_features': ['auto', 'sqrt', 'log2'],\
+    'max_depth' : [2,3,4,5,6,7,8],\
+    'criterion' :['gini', 'entropy']}
+
+gsrf = GridSearchCV(estimator=forest,\
+    param_grid=param_grid_rf,\
+    scoring='accuracy',\
+    cv=10,\
+    n_jobs=2)
+
+gsrf = gsrf.fit(X_train1, y_train1)
+print('For Random Forest')
+print('The best parameter choice is: ',gsrf.best_params_)
+print('The best score is: %.3f' % (gsrf.best_score_))
+
+rforest = gsrf.best_estimator_ #uses the best parameter values found via grid search
+rforest.fit(X_train1, y_train1)
+print('Test accuracy: %.3f' % rforest.score(X_test1, y_test1))
+
+
+
+
+
