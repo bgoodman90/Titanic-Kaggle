@@ -266,26 +266,33 @@ print('Test accuracy: %.3f' % rforest_best.score(X_test1, y_test1))
 #######################################################################################################
 #######################################################################################################
 
+#Majority Vote Classifiers
+
+print('For Hard Majority Voting')
 vote1 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best),\
                                      ('knn', knnpca_best), ('svm', svm_best)], voting='hard')
+
+scores1 = cross_val_score(estimator=vote1, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores1), np.std(scores1)))
 
 vote1 = vote1.fit(X_train1, y_train1)
 y_train_pred_vote1 = vote1.predict(X_train1)
 y_test_pred_vote1 = vote1.predict(X_test1)
 vote1_train = accuracy_score(y_train1, y_train_pred_vote1)
 vote1_test = accuracy_score(y_test1, y_test_pred_vote1)
-print('For Hard Majority Voting')
 print('AdaBoost train/test accuracies %.3f/%.3f' % (vote1_train, vote1_test))
 
-vote2 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best),('knn', knnpca_best)], voting='soft')
+print('For Soft Majority Voting')
+vote2 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best), ('knn', knnpca_best)], voting='soft')
+
+scores2 = cross_val_score(estimator=vote2, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores2), np.std(scores2)))
 
 vote2 = vote2.fit(X_train1, y_train1)
 y_train_pred_vote2 = vote2.predict(X_train1)
 y_test_pred_vote2 = vote2.predict(X_test1)
 vote2_train = accuracy_score(y_train1, y_train_pred_vote2)
 vote2_test = accuracy_score(y_test1, y_test_pred_vote2)
-print('For Soft Majority Voting')
 print('AdaBoost train/test accuracies %.3f/%.3f' % (vote2_train, vote2_test))
-
 
 
