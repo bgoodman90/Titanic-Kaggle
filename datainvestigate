@@ -18,14 +18,17 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import VotingClassifier
+from sklearn.ensemble import BaggingClassifier
 
 df_train = pd.read_csv('train.csv',sep=',')
 df_test = pd.read_csv('test.csv',sep=',')
 df_train_out = df_train['Survived']
 
+df_test_PId = df_test['PassengerId']
+Submit_PId = df_test_PId.values
+
 print('there are ',df_train.shape[0],' passengers in the training set')
 print('there are ',df_test.shape[0],' passengers in the testing set')
-
 
 df_train = df_train.drop(['Survived'], axis=1)
 frames = [df_train, df_test]
@@ -103,11 +106,43 @@ from sklearn.model_selection import train_test_split
 X_train1, X_test1, y_train1, y_test1 =\
     train_test_split(X_train_std, Y_out,\
     test_size = 0.2,\
-    random_state = 0,\
+    random_state = 1,\
     stratify = Y_out)#this makes sure the training and test datasets have same class proportions
 
 #print(np.cov(X_train1.T))#checking the covariance matrix of the training data, none of the values are extremely large
 
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+#Decision Tree (unpruned) with and without Bagging
+
+dtree = DecisionTreeClassifier(criterion='entropy', random_state=1, max_depth=None)
+bag_tree = BaggingClassifier(base_estimator=dtree, n_estimators=500, max_samples=1.0, max_features=1.0, \
+                        bootstrap=True, bootstrap_features=False, n_jobs=1, random_state=1)
+
+print('For Unpruned Decision Tree')
+scores_dtree = cross_val_score(estimator=dtree, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_dtree), np.std(scores_dtree)))
+
+dtree.fit(X_train1, y_train1)
+y_train_pred_dtree = dtree.predict(X_train1)
+y_test_pred_dtree = dtree.predict(X_test1)
+dtree_train = accuracy_score(y_train1, y_train_pred_dtree)
+dtree_test = accuracy_score(y_test1, y_test_pred_dtree)
+print('Unpruned Decision Tree train/test accuracies %.3f/%.3f' % (dtree_train, dtree_test))
+
+print('For Unpruned Decision Trees with Bagging')
+scores_bag_tree = cross_val_score(estimator=bag_tree, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_bag_tree), np.std(scores_bag_tree)))
+
+bag_tree.fit(X_train1, y_train1)
+y_train_pred_bag_tree = bag_tree.predict(X_train1)
+y_test_pred_bag_tree = bag_tree.predict(X_test1)
+bag_tree_train = accuracy_score(y_train1, y_train_pred_bag_tree)
+bag_tree_test = accuracy_score(y_test1, y_test_pred_bag_tree)
+print('Unpruned Decision Trees with Bagging train/test accuracies %.3f/%.3f' % (bag_tree_train, bag_tree_test))
 
 #######################################################################################################
 #######################################################################################################
@@ -137,6 +172,10 @@ print('The best regulation parameter choice is: ',gslr.best_params_)
 print('The best score is: %.3f' % (gslr.best_score_))
 
 lreg_best = gslr.best_estimator_ #uses the best parameter values found via grid search
+
+scores_lreg = cross_val_score(estimator=lreg_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_lreg), np.std(scores_lreg)))
+
 lreg_best.fit(X_train1, y_train1)
 print('Test accuracy: %.3f' % lreg_best.score(X_test1, y_test1))
 
@@ -169,6 +208,10 @@ print('The best parameter choice is: ',gssvm.best_params_)
 print('The best score is: %.3f' % (gssvm.best_score_))
 
 svm_best = gssvm.best_estimator_ #uses the best parameter values found via grid search
+
+scores_svm = cross_val_score(estimator=svm_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_svm), np.std(scores_svm)))
+
 svm_best.fit(X_train1, y_train1)
 print('Test accuracy: %.3f' % svm_best.score(X_test1, y_test1))
 
@@ -194,6 +237,10 @@ print('The best parameter choice is: ',gsknnpca.best_params_)
 print('The best score is: %.3f' % (gsknnpca.best_score_))
 
 knnpca_best = gsknnpca.best_estimator_ #uses the best parameter values found via grid search
+
+scores_knnpca = cross_val_score(estimator=knnpca_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_knnpca), np.std(scores_knnpca)))
+
 knnpca_best.fit(X_train1, y_train1)
 print('Test accuracy: %.3f' % knnpca_best.score(X_test1, y_test1))
 
@@ -204,12 +251,12 @@ print('Test accuracy: %.3f' % knnpca_best.score(X_test1, y_test1))
 
 #AdaBoost using Tree Stumps (also just tree stump)
 
-tree = DecisionTreeClassifier(criterion='entropy', random_state=1, max_depth=1)
-ada = AdaBoostClassifier(base_estimator=tree, n_estimators = 500, random_state=1)
+tree_stump = DecisionTreeClassifier(criterion='entropy', random_state=1, max_depth=1)
+ada = AdaBoostClassifier(base_estimator=tree_stump, n_estimators = 500, random_state=1)
 
-tree = tree.fit(X_train1, y_train1)
-y_train_pred = tree.predict(X_train1)
-y_test_pred = tree.predict(X_test1)
+tree_stump = tree_stump.fit(X_train1, y_train1)
+y_train_pred = tree_stump.predict(X_train1)
+y_test_pred = tree_stump.predict(X_test1)
 tree_train = accuracy_score(y_train1, y_train_pred)
 tree_test = accuracy_score(y_test1, y_test_pred)
 print('For tree stump:')
@@ -224,6 +271,10 @@ print('The best parameter choice is: ',gsada.best_params_)
 print('The best score is: %.3f' % (gsada.best_score_))
 
 ada_best = gsada.best_estimator_ #uses the best parameter values found via grid search
+
+scores_ada = cross_val_score(estimator=ada_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_ada), np.std(scores_ada)))
+
 ada_best.fit(X_train1, y_train1)
 y_train_pred_ada = ada_best.predict(X_train1)
 y_test_pred_ada = ada_best.predict(X_test1)
@@ -258,6 +309,11 @@ print('The best parameter choice is: ',gsrf.best_params_)
 print('The best score is: %.3f' % (gsrf.best_score_))
 
 rforest_best = gsrf.best_estimator_ #uses the best parameter values found via grid search
+
+scores_rforest = cross_val_score(estimator=rforest_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_rforest), np.std(scores_rforest)))
+
+
 rforest_best.fit(X_train1, y_train1)
 print('Test accuracy: %.3f' % rforest_best.score(X_test1, y_test1))
 
@@ -269,7 +325,7 @@ print('Test accuracy: %.3f' % rforest_best.score(X_test1, y_test1))
 #Majority Vote Classifiers
 
 print('For Hard Majority Voting')
-vote1 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best),\
+vote1 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best),('bagtr',bag_tree),\
                                      ('knn', knnpca_best), ('svm', svm_best)], voting='hard')
 
 scores1 = cross_val_score(estimator=vote1, X=X_train1, y=y_train1, cv=10, n_jobs=1)
@@ -280,10 +336,11 @@ y_train_pred_vote1 = vote1.predict(X_train1)
 y_test_pred_vote1 = vote1.predict(X_test1)
 vote1_train = accuracy_score(y_train1, y_train_pred_vote1)
 vote1_test = accuracy_score(y_test1, y_test_pred_vote1)
-print('AdaBoost train/test accuracies %.3f/%.3f' % (vote1_train, vote1_test))
+print('Majority Voting (Hard) train/test accuracies %.3f/%.3f' % (vote1_train, vote1_test))
 
 print('For Soft Majority Voting')
-vote2 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best), ('knn', knnpca_best)], voting='soft')
+vote2 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best), ('knn', knnpca_best),\
+                                     ('bagtr',bag_tree)], voting='soft')
 
 scores2 = cross_val_score(estimator=vote2, X=X_train1, y=y_train1, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores2), np.std(scores2)))
@@ -293,6 +350,18 @@ y_train_pred_vote2 = vote2.predict(X_train1)
 y_test_pred_vote2 = vote2.predict(X_test1)
 vote2_train = accuracy_score(y_train1, y_train_pred_vote2)
 vote2_test = accuracy_score(y_test1, y_test_pred_vote2)
-print('AdaBoost train/test accuracies %.3f/%.3f' % (vote2_train, vote2_test))
+print('Majority Voting (Soft) train/test accuracies %.3f/%.3f' % (vote2_train, vote2_test))
 
+vote2_final = vote2.fit(X_train_std, Y_out)
+vote2_Y_pred = vote2_final.predict(X_ftest_std)
+'''print(Submit_PId)
+print(vote2_Y_pred)
+print(Submit_PId.shape)
+print(vote2_Y_pred.shape)'''
+vote2_submit = np.append([Submit_PId], [vote2_Y_pred], axis = 0).T
+#print(vote2_submit)
+#np.savetxt("maj_vote_soft_pred.csv", vote2_submit, delimiter=",")
 
+with open("maj_vote_soft_pred.csv", "wb") as f:
+    f.write(b'PassengerId,Survived\n')
+    np.savetxt(f, vote2_submit.astype(int), fmt='%i', delimiter=",")
