@@ -7,6 +7,7 @@ import numpy as np
 from pandas import DataFrame
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
@@ -19,6 +20,10 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import VotingClassifier
 from sklearn.ensemble import BaggingClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import BernoulliNB
+import xgboost
 
 df_train = pd.read_csv('train.csv',sep=',')
 df_test = pd.read_csv('test.csv',sep=',')
@@ -111,6 +116,66 @@ X_train1, X_test1, y_train1, y_test1 =\
 
 #print(np.cov(X_train1.T))#checking the covariance matrix of the training data, none of the values are extremely large
 
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+#XGBoost
+
+xgb = xgboost.XGBClassifier(max_depth=3, n_estimators=300, learning_rate=0.05)
+
+print('For XGBoost')
+print(xgb.get_params().keys())
+scores_xgb = cross_val_score(estimator=xgb, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_xgb), np.std(scores_xgb)))
+
+xgb.fit(X_train1, y_train1)
+print('Test accuracy: %.3f' % xgb.score(X_test1, y_test1))
+
+
+
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+
+#Naive Bayes
+
+gnb = GaussianNB()
+
+print('For Gaussian Naive Bayes')
+print(gnb.get_params().keys())
+scores_gnb = cross_val_score(estimator=gnb, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_gnb), np.std(scores_gnb)))
+
+gnb.fit(X_train1, y_train1)
+print('Test accuracy: %.3f' % gnb.score(X_test1, y_test1))
+
+
+pipe_mnb = make_pipeline(MinMaxScaler(), MultinomialNB())
+
+print('For Multinomial Naive Bayes')
+print(pipe_mnb.get_params().keys())
+scores_mnb = cross_val_score(estimator=pipe_mnb, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_mnb), np.std(scores_mnb)))
+
+pipe_mnb.fit(X_train1, y_train1)
+print('Test accuracy: %.3f' % pipe_mnb.score(X_test1, y_test1))
+
+
+bnb = BernoulliNB()
+
+print('For Bernoulli Naive Bayes')
+print(bnb.get_params().keys())
+scores_bnb = cross_val_score(estimator=bnb, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_bnb), np.std(scores_bnb)))
+
+bnb.fit(X_train1, y_train1)
+print('Test accuracy: %.3f' % bnb.score(X_test1, y_test1))
+
+
+
 
 #######################################################################################################
 #######################################################################################################
@@ -123,7 +188,7 @@ bag_tree = BaggingClassifier(base_estimator=dtree, n_estimators=500, max_samples
                         bootstrap=True, bootstrap_features=False, n_jobs=1, random_state=1)
 
 print('For Unpruned Decision Tree')
-scores_dtree = cross_val_score(estimator=dtree, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores_dtree = cross_val_score(estimator=dtree, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_dtree), np.std(scores_dtree)))
 
 dtree.fit(X_train1, y_train1)
@@ -134,7 +199,7 @@ dtree_test = accuracy_score(y_test1, y_test_pred_dtree)
 print('Unpruned Decision Tree train/test accuracies %.3f/%.3f' % (dtree_train, dtree_test))
 
 print('For Unpruned Decision Trees with Bagging')
-scores_bag_tree = cross_val_score(estimator=bag_tree, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores_bag_tree = cross_val_score(estimator=bag_tree, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_bag_tree), np.std(scores_bag_tree)))
 
 bag_tree.fit(X_train1, y_train1)
@@ -173,14 +238,14 @@ print('The best score is: %.3f' % (gslr.best_score_))
 
 lreg_best = gslr.best_estimator_ #uses the best parameter values found via grid search
 
-scores_lreg = cross_val_score(estimator=lreg_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores_lreg = cross_val_score(estimator=lreg_best, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_lreg), np.std(scores_lreg)))
 
 lreg_best.fit(X_train1, y_train1)
 print('Test accuracy: %.3f' % lreg_best.score(X_test1, y_test1))
 
 '''lr = LogisticRegression(C=1, random_state=1)
-scores = cross_val_score(estimator=lr, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores = cross_val_score(estimator=lr, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('LR CV accuracy scores: %s' % scores)
 print('LR CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))'''
 
@@ -209,7 +274,7 @@ print('The best score is: %.3f' % (gssvm.best_score_))
 
 svm_best = gssvm.best_estimator_ #uses the best parameter values found via grid search
 
-scores_svm = cross_val_score(estimator=svm_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores_svm = cross_val_score(estimator=svm_best, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_svm), np.std(scores_svm)))
 
 svm_best.fit(X_train1, y_train1)
@@ -238,7 +303,7 @@ print('The best score is: %.3f' % (gsknnpca.best_score_))
 
 knnpca_best = gsknnpca.best_estimator_ #uses the best parameter values found via grid search
 
-scores_knnpca = cross_val_score(estimator=knnpca_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores_knnpca = cross_val_score(estimator=knnpca_best, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_knnpca), np.std(scores_knnpca)))
 
 knnpca_best.fit(X_train1, y_train1)
@@ -272,7 +337,7 @@ print('The best score is: %.3f' % (gsada.best_score_))
 
 ada_best = gsada.best_estimator_ #uses the best parameter values found via grid search
 
-scores_ada = cross_val_score(estimator=ada_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores_ada = cross_val_score(estimator=ada_best, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_ada), np.std(scores_ada)))
 
 ada_best.fit(X_train1, y_train1)
@@ -280,7 +345,6 @@ y_train_pred_ada = ada_best.predict(X_train1)
 y_test_pred_ada = ada_best.predict(X_test1)
 ada_train = accuracy_score(y_train1, y_train_pred_ada)
 ada_test = accuracy_score(y_test1, y_test_pred_ada)
-print('For AdaBoost')
 print('AdaBoost train/test accuracies %.3f/%.3f' % (ada_train, ada_test))
 
 #######################################################################################################
@@ -310,7 +374,7 @@ print('The best score is: %.3f' % (gsrf.best_score_))
 
 rforest_best = gsrf.best_estimator_ #uses the best parameter values found via grid search
 
-scores_rforest = cross_val_score(estimator=rforest_best, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores_rforest = cross_val_score(estimator=rforest_best, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores_rforest), np.std(scores_rforest)))
 
 
@@ -325,10 +389,10 @@ print('Test accuracy: %.3f' % rforest_best.score(X_test1, y_test1))
 #Majority Vote Classifiers
 
 print('For Hard Majority Voting')
-vote1 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best),('bagtr',bag_tree),\
-                                     ('knn', knnpca_best), ('svm', svm_best)], voting='hard')
+vote1 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best),\
+                                     ('bagtr',bag_tree), ('xgb',xgb), ('svm', svm_best)], voting='hard')
 
-scores1 = cross_val_score(estimator=vote1, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores1 = cross_val_score(estimator=vote1, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores1), np.std(scores1)))
 
 vote1 = vote1.fit(X_train1, y_train1)
@@ -339,10 +403,10 @@ vote1_test = accuracy_score(y_test1, y_test_pred_vote1)
 print('Majority Voting (Hard) train/test accuracies %.3f/%.3f' % (vote1_train, vote1_test))
 
 print('For Soft Majority Voting')
-vote2 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best), ('knn', knnpca_best),\
-                                     ('bagtr',bag_tree)], voting='soft')
+vote2 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best),\
+                                     ('bagtr',bag_tree), ('xgb',xgb)], voting='soft')
 
-scores2 = cross_val_score(estimator=vote2, X=X_train1, y=y_train1, cv=10, n_jobs=1)
+scores2 = cross_val_score(estimator=vote2, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores2), np.std(scores2)))
 
 vote2 = vote2.fit(X_train1, y_train1)
@@ -365,3 +429,19 @@ vote2_submit = np.append([Submit_PId], [vote2_Y_pred], axis = 0).T
 with open("maj_vote_soft_pred.csv", "wb") as f:
     f.write(b'PassengerId,Survived\n')
     np.savetxt(f, vote2_submit.astype(int), fmt='%i', delimiter=",")
+
+
+#The following is for playing around with the voting system to try and find the best combination of voters
+print('For Soft Majority Voting (2nd vote system)')
+vote3 = VotingClassifier(estimators=[('lr', lreg_best), ('rf', rforest_best), \
+                                     ('bagtr', bag_tree), ('xgb',xgb)], voting='soft')
+
+scores2 = cross_val_score(estimator=vote3, X=X_train_std, y=Y_out, cv=10, n_jobs=1)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores2), np.std(scores2)))
+
+vote3 = vote3.fit(X_train1, y_train1)
+y_train_pred_vote3 = vote3.predict(X_train1)
+y_test_pred_vote3 = vote3.predict(X_test1)
+vote3_train = accuracy_score(y_train1, y_train_pred_vote3)
+vote3_test = accuracy_score(y_test1, y_test_pred_vote3)
+print('Majority Voting (Soft) train/test accuracies %.3f/%.3f' % (vote3_train, vote3_test))
